@@ -118,16 +118,17 @@ fn sort_hands_by_type(hands: Hands) -> [Hands; 7] {
     return result;
 }
 fn get_hand_card_value(c: char) -> u64 {
-    if c.is_ascii_digit() {
-        return c.to_digit(10).unwrap() as u64;
-    } else {
-        match c {
-            'T' => return 10,
-            'J' => return 11,
-            'Q' => return 12,
-            'K' => return 13,
-            'A' => return 14,
-            _ => panic!("Card value is not right"),
+    match c {
+        'T' => return 10,
+        'J' => return 1,
+        'Q' => return 11,
+        'K' => return 12,
+        'A' => return 13,
+        n => {
+            if n.is_ascii_digit() {
+                return n.to_digit(10).unwrap() as u64;
+            }
+            panic!("Error matching card name and value");
         }
     }
 }
@@ -142,34 +143,70 @@ fn get_hand_type(cards: &[char; 5]) -> HandType {
             *a += 1;
         }
     }
-    for (_, v) in set {
-        arr_matches.push(v);
+    let jokers = *set.get(&'J').unwrap_or(&0);
+    for entry in set {
+        arr_matches.push(entry.1);
     }
     arr_matches.sort_by(|a, b| b.cmp(a));
-    let mut tmp: Vec<u64> = vec![];
-    // println!("{:?}", arr_matches);
-    for m in arr_matches {
-        if m == 5 {
+    let max = arr_matches[0];
+    if max == 5 {
+        return HandType::FiveOfAKind;
+    }
+    let next = arr_matches[1];
+    if max == 4 {
+        if jokers == 4 {
             return HandType::FiveOfAKind;
-        } else if m == 4 {
-            return HandType::FourOfAKind;
         }
-        tmp.push(m);
-    }
-    if tmp[0] == 3 && tmp[1] == 2 {
-        return HandType::FullHouse;
-    } else if tmp[0] == 2 && tmp[1] == 2 {
-        return HandType::TwoPair;
-    }
-    for m in tmp {
-        if m == 3 {
-            return HandType::ThreeOfAKind;
-        } else if m == 2 {
+        if jokers == 1 {
+            return HandType::FiveOfAKind;
+        }
+        return HandType::FourOfAKind;
+    } else if max == 3 {
+        if next == 2 {
+            if jokers == 3 {
+                return HandType::FiveOfAKind;
+            }
+            if jokers == 2 {
+                return HandType::FiveOfAKind;
+            } else {
+                return HandType::FullHouse;
+            }
+        } else if next == 1 {
+            if jokers == 3 {
+                return HandType::FourOfAKind;
+            }
+            if jokers == 1 {
+                return HandType::FourOfAKind;
+            } else {
+                return HandType::ThreeOfAKind;
+            }
+        }
+    } else if max == 2 {
+        if next == 2 {
+            if jokers == 2 {
+                return HandType::FourOfAKind;
+            } else if jokers == 1 {
+                return HandType::FullHouse;
+            } else {
+                return HandType::TwoPair;
+            }
+        } else if next == 1 {
+            if jokers == 2 {
+                return HandType::ThreeOfAKind;
+            } else if jokers == 1 {
+                return HandType::ThreeOfAKind;
+            } else {
+                return HandType::OnePair;
+            }
+        }
+    } else if max == 1 {
+        if jokers == 1 {
             return HandType::OnePair;
         }
+        return HandType::HighCard;
     }
 
-    return HandType::HighCard;
+    panic!("error getting hand type");
 }
 fn parse_input(input_path: &String) -> Hands {
     let file = fs::File::open(input_path).unwrap();
@@ -191,6 +228,7 @@ fn parse_input(input_path: &String) -> Hands {
         for (i, c) in arr[0].char_indices() {
             cards[i] = c;
         }
+
         let hand_type = get_hand_type(&cards);
         let bid = u64::from_str_radix(arr[1], 10).unwrap();
         let hand = Hand {
